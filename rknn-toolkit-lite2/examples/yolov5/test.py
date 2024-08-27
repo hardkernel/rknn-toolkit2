@@ -10,7 +10,6 @@ DEVICE_COMPATIBLE_NODE = '/proc/device-tree/compatible'
 BOX_THESH = 0.5
 NMS_THRESH = 0.6
 
-IMG_PATH = './bus.jpg'
 IMG_SIZE = 640
 
 CLASSES = ("person", "bicycle", "car", "motorbike ", "aeroplane ", "bus ", "train", "truck ", "boat", "traffic light",
@@ -272,10 +271,16 @@ if __name__ == '__main__':
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT,IMG_SIZE)
     while True:
         check,frame=cap.read()
+        if not check or frame is None:
+        	print("Failed to capture frame")
+        	exit(-1)
+
         # Set inputs
         # img, ratio, (dw, dh) = letterbox(img, new_shape=(IMG_SIZE, IMG_SIZE))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
+        dim3_frame = frame.copy()
+        frame = np.expand_dims(frame, 0)
 
         # Inference
         outputs = rknn_lite.inference(inputs=[frame])
@@ -296,7 +301,7 @@ if __name__ == '__main__':
 
         boxes, classes, scores = yolov5_post_process(input_data)
 
-        result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        result = cv2.cvtColor(dim3_frame, cv2.COLOR_RGB2BGR)
         if boxes is not None:
             draw(result, boxes, scores, classes)
         # show output
