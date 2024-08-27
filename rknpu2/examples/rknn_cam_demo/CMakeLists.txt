@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.6)
 
 project(rknn_cam_demo)
 
@@ -24,13 +24,7 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR})
 
 # rknn api
-if(TARGET_SOC STREQUAL "rk356x")
-  set(RKNN_API_PATH ${CMAKE_SOURCE_DIR}/../../runtime/RK356X/${CMAKE_SYSTEM_NAME}/librknn_api)
-elseif(TARGET_SOC STREQUAL "rk3588")
-  set(RKNN_API_PATH ${CMAKE_SOURCE_DIR}/../../runtime/RK3588/${CMAKE_SYSTEM_NAME}/librknn_api)
-else()
-  message(FATAL_ERROR "TARGET_SOC is not set, ref value: rk356x or rk3588 or rv110x")
-endif()
+set(RKNN_API_PATH ${CMAKE_SOURCE_DIR}/../../runtime/${CMAKE_SYSTEM_NAME}/librknn_api)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   set(RKNN_RT_LIB ${RKNN_API_PATH}/${CMAKE_ANDROID_ARCH_ABI}/librknnrt.so)
@@ -42,29 +36,24 @@ include_directories(${RKNN_API_PATH}/include)
 include_directories(${CMAKE_SOURCE_DIR}/../3rdparty)
 
 # opencv
+# need to use system OpenCV Package for supporting video capture
 find_package(OpenCV REQUIRED)
 
 # rga
-if(TARGET_SOC STREQUAL "rk356x")
-  set(RGA_PATH ${CMAKE_SOURCE_DIR}/../3rdparty/rga/RK356X)
-elseif(TARGET_SOC STREQUAL "rk3588")
-  set(RGA_PATH ${CMAKE_SOURCE_DIR}/../3rdparty/rga/RK3588)
-else()
-  message(FATAL_ERROR "TARGET_SOC is not set, ref value: rk356x or rk3588")
-endif()
-
+# comes from https://github.com/airockchip/librga
+set(RGA_PATH ${CMAKE_SOURCE_DIR}/../3rdparty/rga/)
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-  set(RGA_LIB ${RGA_PATH}/lib/Android/${CMAKE_ANDROID_ARCH_ABI}/librga.so)
+  set(RGA_LIB ${RGA_PATH}/libs/AndroidNdk/${CMAKE_ANDROID_ARCH_ABI}/librga.so)
 else()
-  set(RGA_LIB ${RGA_PATH}/lib/Linux//${LIB_ARCH}/librga.so)
+  set(RGA_LIB ${RGA_PATH}/libs/${CMAKE_SYSTEM_NAME}/gcc-${LIB_ARCH}/librga.so)
 endif()
-
 include_directories(${RGA_PATH}/include)
 
 set(CMAKE_INSTALL_RPATH "lib")
 
 # rknn_cam_demo
-include_directories( ${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
 add_executable(rknn_cam_demo
         src/main.cc
         src/postprocess.cc
