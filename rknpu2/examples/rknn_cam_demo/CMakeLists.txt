@@ -70,4 +70,6 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install/rknn_cam_demo_${CMAKE_SYSTE
 install(TARGETS rknn_cam_demo DESTINATION ./)
 install(PROGRAMS ${RKNN_RT_LIB} DESTINATION lib)
 install(PROGRAMS ${RGA_LIB} DESTINATION lib)
-install(DIRECTORY model DESTINATION ./)
+install(DIRECTORY model/${TARGET_SOC} DESTINATION ./model)
+file(GLOB LABEL_FILE "model/*.txt")
+install(FILES ${LABEL_FILE} DESTINATION ./model)
