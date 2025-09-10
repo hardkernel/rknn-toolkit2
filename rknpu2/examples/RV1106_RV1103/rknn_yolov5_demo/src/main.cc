@@ -147,6 +147,31 @@ static unsigned char *load_image(const char *image_path, rknn_tensor_attr *input
   return image_data;
 }
 
+int NC1HWC2_i8_to_NHWC_i8(const int8_t* src, int8_t* dst, int* dims, int channel, int h, int w)
+{
+  int batch  = dims[0];
+  int C1     = dims[1];
+  int C2     = dims[4];
+  int hw_src = dims[2] * dims[3];
+  int hw_dst = h * w;
+  for (int i = 0; i < batch; i++) {
+    const int8_t* src_b = src + i * C1 * hw_src * C2;
+    int8_t*       dst_b = dst + i * channel * hw_dst;
+    for (int cur_h = 0; cur_h < h; ++cur_h)
+      for (int cur_w = 0; cur_w < w; ++cur_w) {
+        for (int c = 0; c < channel; ++c) {
+          int           plane  = c / C2;
+          const int8_t* src_bc = plane * hw_src * C2 + src_b;
+          int           offset = c % C2;
+          int cur_hw                 = cur_h * w + cur_w;
+          dst_b[cur_h * w * channel + cur_w* channel + c] = src_bc[C2 * cur_hw + offset] ;
+
+        }
+    }
+  }
+  return 0;
+}
+
 
 /*-------------------------------------------
                   Main Functions
@@ -168,6 +193,8 @@ int main(int argc, char *argv[])
     loop_count = atoi(argv[3]);
   }
 
+  int64_t start_us, elapse_us;
+
   const float nms_threshold = NMS_THRESH;
   const float box_conf_threshold = BOX_THRESH;
 
@@ -175,6 +202,13 @@ int main(int argc, char *argv[])
   int img_height = 0;
 
   rknn_context ctx = 0;
+
+  int model_width = 0;
+  int model_height = 0;
+  float scale_w,scale_h;
+  detect_result_group_t detect_result_group;
+  std::vector<float> out_scales;
+  std::vector<int32_t> out_zps;
 
   // Load RKNN Model
 #if 1
@@ -240,7 +274,11 @@ int main(int argc, char *argv[])
   {
     output_attrs[i].index = i;
     // query info
+#if defined(RV1106_RV1103)
     ret = rknn_query(ctx, RKNN_QUERY_NATIVE_NHWC_OUTPUT_ATTR, &(output_attrs[i]), sizeof(rknn_tensor_attr));
+#else // RV1106B_RV1103B
+    ret = rknn_query(ctx, RKNN_QUERY_NATIVE_OUTPUT_ATTR, &(output_attrs[i]), sizeof(rknn_tensor_attr));
+#endif
     if (ret != RKNN_SUCC)
     {
       printf("rknn_query fail! ret=%d\n", ret);
@@ -262,6 +300,10 @@ int main(int argc, char *argv[])
   unsigned char *input_data = NULL;
   rknn_tensor_type input_type = RKNN_TENSOR_UINT8;
   rknn_tensor_format input_layout = RKNN_TENSOR_NHWC;
+#if !defined(RV1106_RV1103)
+  rknn_tensor_attr orig_output_attrs[io_num.n_output];
+  int8_t* output_mems_nhwc[io_num.n_output];
+#endif
 
   // Load image
   input_data = load_image(input_path, &input_attrs[0], &img_height, &img_width);
@@ -319,7 +361,7 @@ int main(int argc, char *argv[])
   if (ret < 0)
   {
     printf("rknn_set_io_mem fail! ret=%d\n", ret);
-    return -1;
+    goto out;
   }
 
   // Set output tensor memory
@@ -330,7 +372,7 @@ int main(int argc, char *argv[])
     if (ret < 0)
     {
       printf("rknn_set_io_mem fail! ret=%d\n", ret);
-      return -1;
+      goto out;
     }
   }
 
@@ -338,19 +380,17 @@ int main(int argc, char *argv[])
   printf("Begin perf ...\n");
   for (int i = 0; i < loop_count; ++i)
   {
-    int64_t start_us = getCurrentTimeUs();
+    start_us = getCurrentTimeUs();
     ret = rknn_run(ctx, NULL);
-    int64_t elapse_us = getCurrentTimeUs() - start_us;
+    elapse_us = getCurrentTimeUs() - start_us;
     if (ret < 0)
     {
       printf("rknn run error %d\n", ret);
-      return -1;
+      goto out;
     }
     printf("%4d: Elapse Time = %.2fms, FPS = %.2f\n", i, elapse_us / 1000.f, 1000.f * 1000.f / elapse_us);
   }
 
-  int model_width = 0;
-  int model_height = 0;
   if (input_attrs[0].fmt == RKNN_TENSOR_NCHW)
   {
     printf("model is NCHW input fmt\n");
@@ -364,20 +404,39 @@ int main(int argc, char *argv[])
     model_height = input_attrs[0].dims[2];
   }
   // post process
-  float scale_w = (float)model_width / img_width;
-  float scale_h = (float)model_height / img_height;
+  scale_w = (float)model_width / img_width;
+  scale_h = (float)model_height / img_height;
 
-  detect_result_group_t detect_result_group;
-  std::vector<float> out_scales;
-  std::vector<int32_t> out_zps;
   for (int i = 0; i < io_num.n_output; ++i)
   {
     out_scales.push_back(output_attrs[i].scale);
     out_zps.push_back(output_attrs[i].zp);
   }
 
-  post_process((int8_t *)output_mems[0]->virt_addr, (int8_t *)output_mems[1]->virt_addr, (int8_t *)output_mems[2]->virt_addr, 640, 640,
-               box_conf_threshold, nms_threshold, scale_w, scale_h, out_zps, out_scales, &detect_result_group);
+  start_us = getCurrentTimeUs();
+
+#if defined(RV1106_RV1103)
+    post_process((int8_t *)output_mems[0]->virt_addr, (int8_t *)output_mems[1]->virt_addr, (int8_t *)output_mems[2]->virt_addr, 
+      model_height, model_width, box_conf_threshold, nms_threshold, scale_w, scale_h, out_zps, out_scales, &detect_result_group, NULL);
+
+    
+#else // RV1106B_RV1103B
+
+    int dim[5*3];
+    for (uint32_t i = 0; i < io_num.n_output; i++) {
+      dim[5*i+0] =  (int)output_attrs[i].dims[0];
+      dim[5*i+1] =  (int)output_attrs[i].dims[1];
+      dim[5*i+2] =  (int)output_attrs[i].dims[2];
+      dim[5*i+3] =  (int)output_attrs[i].dims[3];
+      dim[5*i+4] =  (int)output_attrs[i].dims[4];
+    }
+    post_process((int8_t *)output_mems[0]->virt_addr, (int8_t *)output_mems[1]->virt_addr, (int8_t *)output_mems[2]->virt_addr, 
+      model_height, model_width, box_conf_threshold, nms_threshold, scale_w, scale_h, out_zps, out_scales, &detect_result_group, dim);
+
+#endif
+   elapse_us = getCurrentTimeUs() - start_us;
+   printf(" post_process Time = %.2fms, FPS = %.2f\n",  elapse_us / 1000.f, 1000.f * 1000.f / elapse_us);
+
 
   char text[256];
   for (int i = 0; i < detect_result_group.count; i++)
@@ -390,6 +449,7 @@ int main(int argc, char *argv[])
            det_result->prop);
   }
 
+out:
   // Destroy rknn memory
   rknn_destroy_mem(ctx, input_mems[0]);
   for (uint32_t i = 0; i < io_num.n_output; ++i)

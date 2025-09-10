@@ -21,7 +21,8 @@
   - RK3566/RK3568 Series
   - RK3562 Series
   - RV1103/RV1106
-  - RV1103B
+  - RV1103B/RV1106B
+  - RV1126B
   - RK2118
 
 
@@ -42,11 +43,15 @@ Note:
 
 # Notes
 - RKNN-Toolkit2 is not compatible with [RKNN-Toolkit](https://github.com/airockchip/rknn-toolkit)
-- Currently only support on:
-  - Ubuntu 18.04 python 3.6/3.7
-  - Ubuntu 20.04 python 3.8/3.9
-  - Ubuntu 22.04 python 3.10/3.11
-- Latest version:v2.1.0
+- The supported Python versions are:
+  - Python 3.6
+  - Python 3.7
+  - Python 3.8
+  - Python 3.9
+  - Python 3.10
+  - Python 3.11
+  - Python 3.12
+- Latest version:v2.3.2
 
 
 
@@ -60,25 +65,26 @@ https://github.com/airockchip/rknn-llm
 
 # CHANGELOG
 
-## v2.1.0
- - Support RV1103B (Beta)
-- Support RK2118 (Beta)
-- Support Flash Attention (Only RK3562 and RK3576)
-- Improve MatMul API
-- Improve support for int32 and int64
-- Support more operators and operator fusion
+## v2.3.2
+- Support for RV1126B platform
+- Improved einsum and Norm operations support
+- Added automatic mixed precision functionality
+- Enhanced graph optimization capabilities
+      
 
  for older version, please refer [CHANGELOG](CHANGELOG.md)
 
 # Feedback and Community Support
 - [Redmine](https://redmine.rock-chips.com) (**Feedback recommended, Please consult our sales or FAE for the redmine account**)
-- QQ Group Chat: 1025468710 (full, please join group 3)
-- QQ Group Chat2: 547021958 (full, please join group 3)
-- QQ Group Chat3: 469385426
+- QQ Group Chat: 1025468710 (full, please join group 4)
+- QQ Group Chat2: 547021958 (full, please join group 4)
+- QQ Group Chat3: 469385426 (full, please join group 4)
+- QQ Group Chat4: 958083853
 <center class="half">
   <img width="200" height="200"  src="res/QQGroupQRCode.png" title="QQ Group Chat"/>
   <img width="200" height="200"  src="res/QQGroup2QRCode.png" title="QQ Group Chat2"/>
   <img width="200" height="200"  src="res/QQGroup3QRCode.png" title="QQ Group Chat3"/>
+  <img width="200" height="200"  src="res/QQGroup4QRCode.png" title="QQ Group Chat4"/>
 </center>
 
 
